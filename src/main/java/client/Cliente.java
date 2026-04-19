@@ -37,7 +37,8 @@ public class Cliente {
             String respuesta = in.readLine();
             
             if (respuesta != null && respuesta.startsWith("ERROR")) {
-                System.out.println(respuesta);
+                System.out.println("\n "+ respuesta.substring(6));
+                System.out.println("  No se pudo conectar al servidor");
                 return;
             }
 
@@ -74,7 +75,8 @@ public class Cliente {
             String res = new String(pConf.getData(), 0, pConf.getLength()).trim();
 
             if (res.startsWith("ERROR")) {
-                System.out.println(res);
+                System.out.println("\n" + res.substring(6));
+                System.out.println("   No se pudo conectar al servidor.");
                 return;
             }
 

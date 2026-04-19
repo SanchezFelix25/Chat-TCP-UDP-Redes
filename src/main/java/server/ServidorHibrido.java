@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public class ServidorHibrido {
+    
+    private static final int MAX_CLIENTES =5;
     private static Map<String, PrintWriter> mapaTCP = Collections.synchronizedMap(new HashMap<>());
     private static Map<String, String> mapaUDP = Collections.synchronizedMap(new HashMap<>()); 
     private static DatagramSocket udpSocketGlobal;
@@ -29,6 +31,10 @@ public class ServidorHibrido {
 
     private static String getFechaFormateada() {
         return LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm a"));
+    }
+    
+    private static boolean hayCupo(){
+        return mapaTCP.size() + mapaUDP.size() < MAX_CLIENTES;
     }
 
     private static boolean nombreExiste(String nombre) {
@@ -70,6 +76,12 @@ public class ServidorHibrido {
         try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
             
+            if(!hayCupo()){
+                System.out.println("Error: Servidor lleno. Maximo 5 Clientes Permitidos");
+                socket.close();
+                return;
+            }
+            
             nombre = in.readLine();
             if (nombre == null || nombreExiste(nombre)) {
                 out.println("ERROR: El nombre de usuario ya existe o es invalido.");
@@ -79,7 +91,7 @@ public class ServidorHibrido {
 
             out.println("OK");
             mapaTCP.put(nombre, out);
-            System.out.println("[TCP] " + nombre + " conectado.");
+            System.out.println("[TCP] " + nombre + " conectado. (" + (mapaTCP.size() + mapaUDP.size()) + "/" + MAX_CLIENTES + ")");
 
             String msg;
             while ((msg = in.readLine()) != null) {
@@ -110,6 +122,13 @@ public class ServidorHibrido {
 
                 if (recibido.startsWith("JOIN:")) {
                     String nombreSolicitado = recibido.substring(5);
+                    
+                    if(!hayCupo()) {
+                        byte[] err = "ERROR: Servidor lleno. Maximo 5 clientes permitidos.".getBytes();
+                        udpSocketGlobal.send(new DatagramPacket(err,err.length,packet.getAddress(), packet.getPort()));
+                        continue;
+                    }
+                    
                     if (nombreExiste(nombreSolicitado)) {
                         byte[] err = "ERROR: Nombre ocupado".getBytes();
                         udpSocketGlobal.send(new DatagramPacket(err, err.length, packet.getAddress(), packet.getPort()));
@@ -131,6 +150,8 @@ public class ServidorHibrido {
                     }
                 }
             }
-        } catch (IOException e) { e.printStackTrace(); }
+        } catch (IOException e) { 
+            e.printStackTrace(); 
+        }
     }
 }
