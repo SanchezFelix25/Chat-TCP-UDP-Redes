@@ -128,6 +128,7 @@ public class Cliente {
         System.exit(0);
     }
     
+    
     // ===================== AYUDA =====================
     private static void mostrarAyuda() {
         // método agregado para mejorar experiencia del usuario
