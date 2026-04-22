@@ -136,7 +136,7 @@ public class ServidorHibrido {
                         mapaUDP.put(idCliente, nombreSolicitado);
                         byte[] ok = "OK".getBytes();
                         udpSocketGlobal.send(new DatagramPacket(ok, ok.length, packet.getAddress(), packet.getPort()));
-                        System.out.println("[UDP] " + nombreSolicitado + " conectado.");
+                        System.out.println("[UDP] " + nombreSolicitado + " Registrado. ("+ (mapaTCP.size() + mapaUDP.size()) + "/" + MAX_CLIENTES + ")");
                     }
                 } else if (recibido.endsWith(":exit")) {
                     mapaUDP.remove(idCliente);
