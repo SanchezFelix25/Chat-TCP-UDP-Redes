@@ -81,8 +81,9 @@ public class Cliente {
             }
 
             System.out.println("--- Conectado vía UDP como " + nombre + " ---");
-            System.out.println("(Escribe 'exit' para salir)");
+            mostrarAyuda(); //ayuda también en UDP
 
+            // Hilo recepción
             Thread hiloLectura = new Thread(() -> {
                 try {
                     byte[] buf = new byte[1024];
@@ -91,21 +92,50 @@ public class Cliente {
                         socket.receive(p);
                         System.out.println(new String(p.getData(), 0, p.getLength()));
                     }
-                } catch (IOException e) { }
+                } catch (IOException e) {
+                    System.out.println("Conexión UDP cerrada.");
+                }
             });
             hiloLectura.start();
 
-            String msg;
-            while (sc.hasNextLine()) {
-                msg = sc.nextLine();
-                if (msg.equalsIgnoreCase("exit")) {
+            // Envío de mensajes
+            while (true) {
+                String msg = sc.nextLine();
+                
+                //Validación del comando /priv en UDP
+                if (msg.startsWith("/priv")) {
+                    
+                    if (!msg.matches("^/priv\\s+\\S+\\s+.+")) {
+                        System.out.println("Uso correcto: /priv usuario mensaje");
+                        continue;
+                    }
+                }
+
+                
+            if (msg.equalsIgnoreCase("exit")) {
                     String exitMsg = nombre + ":exit";
                     socket.send(new DatagramPacket(exitMsg.getBytes(), exitMsg.length(), addr, puerto));
                     break;
                 }
+
                 socket.send(new DatagramPacket(msg.getBytes(), msg.length(), addr, puerto));
             }
-        } catch (IOException e) { System.out.println("Error de conexión."); }
+
+        } catch (IOException e) {
+            System.out.println("Error de conexión.");
+        }
+
         System.exit(0);
     }
+    
+    // ===================== AYUDA =====================
+    private static void mostrarAyuda() {
+        // método agregado para mejorar experiencia del usuario
+        System.out.println("\nComandos disponibles:");
+        System.out.println("Mensaje normal → se envía a todos");
+        System.out.println("/priv usuario mensaje → mensaje privado");
+        System.out.println("exit → salir");
+        System.out.println("----------------------------------\n");
+    }
+    
 }

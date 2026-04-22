@@ -40,7 +40,44 @@ public class ServidorHibrido {
     private static boolean nombreExiste(String nombre) {
         return mapaTCP.containsKey(nombre) || mapaUDP.containsValue(nombre);
     }
+    private static void enviarMensajePrivado(String remitente, String destinatario, String mensaje) {
+        String formato = "[PRIVADO de " + remitente + "] " + getFechaFormateada() + ":\n" + mensaje;
 
+        // Buscar en TCP
+        PrintWriter outTCP = mapaTCP.get(destinatario);
+        if (outTCP != null) {
+            outTCP.println(formato);
+            System.out.println("Mensaje privado enviado de " + remitente + " a " + destinatario);
+            return;
+        }
+
+        // Buscar en UDP
+        synchronized (mapaUDP) {
+            for (Map.Entry<String, String> entry : mapaUDP.entrySet()) {
+                if (entry.getValue().equals(destinatario)) {
+                    try {
+                        String[] partes = entry.getKey().split(":");
+                        InetAddress addr = InetAddress.getByName(partes[0]);
+                        int port = Integer.parseInt(partes[1]);
+                        byte[] data = formato.getBytes();
+                        udpSocketGlobal.send(new DatagramPacket(data, data.length, addr, port));
+                        System.out.println("Mensaje privado enviado de " + remitente + " a " + destinatario);
+                        return;
+                    } catch (IOException e) {
+                        System.out.println("Error enviando privado UDP");
+                    }
+                }
+            }
+        }
+
+        // Si no se encontró el destinatario
+        PrintWriter remitenteOut = mapaTCP.get(remitente);
+        if (remitenteOut != null) {
+            remitenteOut.println("ERROR: Usuario '" + destinatario + "' no encontrado o desconectado.");
+        }
+    }
+    
+    
     private static void enviarATodos(String msg) {
         synchronized (mapaTCP) {
             Iterator<Map.Entry<String, PrintWriter>> it = mapaTCP.entrySet().iterator();
@@ -96,6 +133,19 @@ public class ServidorHibrido {
             String msg;
             while ((msg = in.readLine()) != null) {
                 if (msg.equalsIgnoreCase("exit")) break;
+                
+                // === NUEVO: DETECTAR COMANDO PRIVADO ===
+                if (msg.startsWith("/priv ")) {
+                    String[] partes = msg.substring(6).trim().split(" ", 2);
+                    if (partes.length == 2) {
+                        String destinatario = partes[0];
+                        String mensajePrivado = partes[1];
+                        enviarMensajePrivado(nombre, destinatario, mensajePrivado);
+                        continue; // No enviar al broadcast
+                    }
+                }
+                
+                // Mensaje normal
                 String formato = nombre + " " + getFechaFormateada() + ":\n" + msg;
                 System.out.println(formato);
                 enviarATodos(formato);
@@ -113,22 +163,23 @@ public class ServidorHibrido {
         try {
             udpSocketGlobal = new DatagramSocket(puerto);
             byte[] buffer = new byte[1024];
+
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 udpSocketGlobal.receive(packet);
-                
+
                 String idCliente = packet.getAddress().getHostAddress() + ":" + packet.getPort();
                 String recibido = new String(packet.getData(), 0, packet.getLength()).trim();
 
                 if (recibido.startsWith("JOIN:")) {
                     String nombreSolicitado = recibido.substring(5);
-                    
-                    if(!hayCupo()) {
-                        byte[] err = "ERROR: Servidor lleno. Maximo 5 clientes permitidos.".getBytes();
-                        udpSocketGlobal.send(new DatagramPacket(err,err.length,packet.getAddress(), packet.getPort()));
+
+                    if (!hayCupo()) {
+                        byte[] err = "ERROR: Servidor lleno. Máximo 5 clientes permitidos.".getBytes();
+                        udpSocketGlobal.send(new DatagramPacket(err, err.length, packet.getAddress(), packet.getPort()));
                         continue;
                     }
-                    
+
                     if (nombreExiste(nombreSolicitado)) {
                         byte[] err = "ERROR: Nombre ocupado".getBytes();
                         udpSocketGlobal.send(new DatagramPacket(err, err.length, packet.getAddress(), packet.getPort()));
@@ -136,22 +187,36 @@ public class ServidorHibrido {
                         mapaUDP.put(idCliente, nombreSolicitado);
                         byte[] ok = "OK".getBytes();
                         udpSocketGlobal.send(new DatagramPacket(ok, ok.length, packet.getAddress(), packet.getPort()));
-                        System.out.println("[UDP] " + nombreSolicitado + " Registrado. ("+ (mapaTCP.size() + mapaUDP.size()) + "/" + MAX_CLIENTES + ")");
+                        System.out.println("[UDP] " + nombreSolicitado + " conectado. (" + (mapaTCP.size() + mapaUDP.size()) + "/" + MAX_CLIENTES + ")");
                     }
-                } else if (recibido.endsWith(":exit")) {
+                } 
+                else if (recibido.endsWith(":exit")) {
                     mapaUDP.remove(idCliente);
-                    System.out.println("[UDP] Cliente removido: " + idCliente);
-                } else {
+                } 
+                else {
                     String nombreUdp = mapaUDP.get(idCliente);
                     if (nombreUdp != null) {
+
+                        // === NUEVO: DETECTAR COMANDO PRIVADO en UDP ===
+                        if (recibido.startsWith("/priv ")) {
+                            String[] partes = recibido.substring(6).trim().split(" ", 2);
+                            if (partes.length == 2) {
+                                String destinatario = partes[0];
+                                String mensajePrivado = partes[1];
+                                enviarMensajePrivado(nombreUdp, destinatario, mensajePrivado);
+                                continue;
+                            }
+                        }
+
+                        // Mensaje normal (broadcast)
                         String formato = nombreUdp + " " + getFechaFormateada() + ":\n" + recibido;
                         System.out.println(formato);
                         enviarATodos(formato);
                     }
                 }
             }
-        } catch (IOException e) { 
-            e.printStackTrace(); 
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }
