@@ -7,6 +7,7 @@ package client;
  */
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
 public class Cliente {
@@ -31,7 +32,7 @@ public class Cliente {
     private static void iniciarTCP(String ip, int puerto, String nombre, Scanner sc) {
         try (Socket socket = new Socket(ip, puerto);
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream(),StandardCharsets.UTF_8))) {
             
             out.println(nombre);
             String respuesta = in.readLine();
@@ -90,7 +91,7 @@ public class Cliente {
                     while (true) {
                         DatagramPacket p = new DatagramPacket(buf, buf.length);
                         socket.receive(p);
-                        System.out.println(new String(p.getData(), 0, p.getLength()));
+                        System.out.println(new String(p.getData(), 0, p.getLength(),StandardCharsets.UTF_8));
                     }
                 } catch (IOException e) {
                     System.out.println("Conexión UDP cerrada.");
@@ -118,7 +119,7 @@ public class Cliente {
                     break;
                 }
 
-                socket.send(new DatagramPacket(msg.getBytes(), msg.length(), addr, puerto));
+                socket.send(new DatagramPacket(msg.getBytes(StandardCharsets.UTF_8), msg.length(), addr, puerto));
             }
 
         } catch (IOException e) {

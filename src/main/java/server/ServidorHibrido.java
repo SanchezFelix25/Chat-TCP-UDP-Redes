@@ -7,6 +7,7 @@ package server;
  */
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -110,7 +111,7 @@ public class ServidorHibrido {
 
     private static void manejarClienteTCP(Socket socket) {
         String nombre = "";
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream(),StandardCharsets.UTF_8));
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
             
             if(!hayCupo()){
